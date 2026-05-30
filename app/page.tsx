@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ID, Query, type Models } from "appwrite";
-import { databases } from "@/lib/appwrite";
+import { tablesDB } from "@/lib/appwrite";
 
 type Team = "first" | "second";
 
@@ -24,15 +24,15 @@ type DayType = {
   boards: Record<Team, EventType[]>;
 };
 
-type EventDocument = Models.Document & Omit<EventType, "$id">;
+type EventRow = Models.Row & Omit<EventType, "$id">;
 
-type DayDocument = Models.Document & {
+type DayRow = Models.Row & {
   date: string;
   first_team_name?: string;
   second_team_name?: string;
 };
 
-const DATABASE_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ?? "dance_ops";
+const DATABASE_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ?? "6a1ac1800001fb5d59a4";
 const DAYS_COLLECTION_ID = process.env.NEXT_PUBLIC_APPWRITE_DAYS_COLLECTION_ID ?? "days";
 const EVENTS_COLLECTION_ID = process.env.NEXT_PUBLIC_APPWRITE_EVENTS_COLLECTION_ID ?? "events";
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? "1733";
@@ -91,11 +91,11 @@ export default function Page() {
     setLoading(true);
     try {
       const [daysRes, eventsRes] = await Promise.all([
-        databases.listDocuments<DayDocument>(DATABASE_ID, DAYS_COLLECTION_ID, [Query.orderAsc("date")]),
-        databases.listDocuments<EventDocument>(DATABASE_ID, EVENTS_COLLECTION_ID, [Query.limit(5000)]),
+        tablesDB.listRows<DayRow>(DATABASE_ID, DAYS_COLLECTION_ID, [Query.orderAsc("date")]),
+        tablesDB.listRows<EventRow>(DATABASE_ID, EVENTS_COLLECTION_ID, [Query.limit(5000)]),
       ]);
 
-      const events: EventType[] = eventsRes.documents.map((event) => ({
+      const events: EventType[] = eventsRes.rows.map((event) => ({
         $id: event.$id,
         title: event.title,
         time: event.time,
@@ -105,7 +105,7 @@ export default function Page() {
         day_id: event.day_id,
       }));
 
-      const formatted = daysRes.documents.map((day) => ({
+      const formatted = daysRes.rows.map((day) => ({
         $id: day.$id,
         date: day.date,
         firstTeamName: day.first_team_name || "Я Воробушки",
@@ -130,7 +130,7 @@ export default function Page() {
     const value = window.prompt("Введите дату:");
     if (!value) return;
 
-    const day = await databases.createDocument<DayDocument>(DATABASE_ID, DAYS_COLLECTION_ID, ID.unique(), {
+    const day = await tablesDB.createRow<DayRow>(DATABASE_ID, DAYS_COLLECTION_ID, ID.unique(), {
       date: value,
       first_team_name: "Я Воробушки",
       second_team_name: "Лев и новенькие",
@@ -149,19 +149,19 @@ export default function Page() {
   async function saveDayEdit() {
     if (!editingDayId || !editingField) return;
 
-    const updateData: Partial<Pick<DayDocument, "date" | "first_team_name" | "second_team_name">> = {};
+    const updateData: Partial<Pick<DayRow, "date" | "first_team_name" | "second_team_name">> = {};
     if (editingField === "date") updateData.date = editValue;
     if (editingField === "firstTeamName") updateData.first_team_name = editValue;
     if (editingField === "secondTeamName") updateData.second_team_name = editValue;
 
-    await databases.updateDocument(DATABASE_ID, DAYS_COLLECTION_ID, editingDayId, updateData);
+    await tablesDB.updateRow(DATABASE_ID, DAYS_COLLECTION_ID, editingDayId, updateData);
     setEditingDayId(null);
     setEditingField(null);
     await loadData();
   }
 
   async function addEvent(dayId: string, team: Team) {
-    await databases.createDocument(DATABASE_ID, EVENTS_COLLECTION_ID, ID.unique(), {
+    await tablesDB.createRow(DATABASE_ID, EVENTS_COLLECTION_ID, ID.unique(), {
       title: "Новое выступление",
       time: "18:00",
       place: "",
@@ -175,7 +175,7 @@ export default function Page() {
   async function deleteEvent(id: string) {
     if (!window.confirm("Удалить выступление?")) return;
 
-    await databases.deleteDocument(DATABASE_ID, EVENTS_COLLECTION_ID, id);
+    await tablesDB.deleteRow(DATABASE_ID, EVENTS_COLLECTION_ID, id);
     await loadData();
   }
 
@@ -192,7 +192,7 @@ export default function Page() {
   async function saveEdit() {
     if (!editingEvent) return;
 
-    await databases.updateDocument(DATABASE_ID, EVENTS_COLLECTION_ID, editingEvent.$id, editForm);
+    await tablesDB.updateRow(DATABASE_ID, EVENTS_COLLECTION_ID, editingEvent.$id, editForm);
     setEditingEvent(null);
     await loadData();
   }
@@ -201,14 +201,14 @@ export default function Page() {
     const value = window.prompt("Время в пути:", event.road || "");
     if (value === null) return;
 
-    await databases.updateDocument(DATABASE_ID, EVENTS_COLLECTION_ID, event.$id, { road: value });
+    await tablesDB.updateRow(DATABASE_ID, EVENTS_COLLECTION_ID, event.$id, { road: value });
     await loadData();
   }
 
   async function onDrop(dayId: string, team: Team) {
     if (!dragged) return;
 
-    await databases.updateDocument(DATABASE_ID, EVENTS_COLLECTION_ID, dragged.event.$id, { day_id: dayId, team });
+    await tablesDB.updateRow(DATABASE_ID, EVENTS_COLLECTION_ID, dragged.event.$id, { day_id: dayId, team });
     setDragged(null);
     await loadData();
   }
