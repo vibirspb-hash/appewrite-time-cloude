@@ -40,7 +40,7 @@ const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD ?? "1733";
 const emptyEventForm = { title: "", time: "", place: "", road: "" };
 
 function sortByTime(a: EventType, b: EventType) {
-  return a.time.localeCompare(b.time, "ru", { numeric: true });
+  return (a.time || "").localeCompare(b.time || "", "ru", { numeric: true });
 }
 
 export default function Page() {
