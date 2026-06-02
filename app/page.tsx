@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { ID, Query, type Models } from "appwrite";
 import { tablesDB } from "@/lib/appwrite";
 
@@ -205,7 +205,8 @@ export default function Page() {
     await loadData();
   }
 
-  async function onDrop(dayId: string, team: Team) {
+  async function onDrop(dropEvent: DragEvent<HTMLElement>, dayId: string, team: Team) {
+    dropEvent.preventDefault();
     if (!dragged) return;
 
     await tablesDB.updateRow(DATABASE_ID, EVENTS_COLLECTION_ID, dragged.event.$id, { day_id: dayId, team });
@@ -247,22 +248,32 @@ export default function Page() {
   function renderEvent(event: EventType, dayId: string) {
     return (
       <article key={event.$id} className="event-shell">
-        <button
+        <div
           draggable
+          role="button"
+          tabIndex={0}
           className="event-card"
           onClick={() => startEdit(event)}
-          onDragStart={() => setDragged({ event, dayId })}
+          onDragStart={(dragEvent) => {
+            dragEvent.dataTransfer.effectAllowed = "move";
+            dragEvent.dataTransfer.setData("text/plain", event.$id);
+            setDragged({ event, dayId });
+          }}
+          onDragEnd={() => setDragged(null)}
+          onKeyDown={(keyEvent) => {
+            if (keyEvent.key === "Enter" || keyEvent.key === " ") startEdit(event);
+          }}
         >
           <span className="event-time">{event.time}</span>
           <span className="event-title">{event.title}</span>
           {event.place && <span className="event-place">{event.place}</span>}
-        </button>
+        </div>
 
         <div className="event-actions">
-          <button aria-label="Время в пути" onClick={() => quickRoad(event)}>
+          <button aria-label="Время в пути" onClick={(clickEvent) => { clickEvent.stopPropagation(); quickRoad(event); }}>
             🚗
           </button>
-          <button aria-label="Удалить выступление" onClick={() => deleteEvent(event.$id)}>
+          <button aria-label="Удалить выступление" onClick={(clickEvent) => { clickEvent.stopPropagation(); deleteEvent(event.$id); }}>
             🗑
           </button>
         </div>
@@ -278,7 +289,14 @@ export default function Page() {
     const teamField = team === "first" ? "firstTeamName" : "secondTeamName";
 
     return (
-      <section className="team-column" onDragOver={(event) => event.preventDefault()} onDrop={() => onDrop(day.$id, team)}>
+      <section
+        className="team-column"
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+        }}
+        onDrop={(event) => onDrop(event, day.$id, team)}
+      >
         <div className="column-head">
           {renderEditableTitle(day, teamField, teamName, "team-name")}
           <button className="icon-button" aria-label="Добавить выступление" onClick={() => addEvent(day.$id, team)}>
